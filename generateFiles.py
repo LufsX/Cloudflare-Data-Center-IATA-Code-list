@@ -1,22 +1,18 @@
 import json
 import os
+from pathlib import Path
+
 import requests
 
+DIST = Path("dist")
+JSON_FILES = [
+    "cloudflare-iata.json",
+    "cloudflare-iata-zh.json",
+    "cloudflare-iata-full.json",
+    "en2zh.json",
+]
 
-def generate_files(json_path, output_dir):
-    os.makedirs(output_dir, exist_ok=True)
-    with open(json_path, "r", encoding="utf-8") as json_file:
-        data = json.load(json_file)
-        for code, value in data.items():
-            file_path = os.path.join(output_dir, code)
-            if isinstance(value, dict):
-                value = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(value)
-
-
-def write_headers_file(output_dir):
-    headers = """/en/*
+HEADERS = """/en/*
   Access-Control-Allow-Origin: *
   Access-Control-Expose-Headers: *
   Cache-Control: public, max-age=86400
@@ -32,38 +28,8 @@ def write_headers_file(output_dir):
   Cache-Control: public, max-age=86400
   Content-Type: application/json; charset=UTF-8
 """
-    headers_file_path = os.path.join(output_dir, "_headers")
-    with open(headers_file_path, "w", encoding="utf-8") as f:
-        f.write(headers)
 
-
-def convert_readme_to_html(readme_path, output_path, github_token=None):
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    with open(readme_path, "r", encoding="utf-8") as md_file:
-        md_content = md_file.read()
-
-    github_api_url = "https://api.github.com/markdown"
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-    if github_token:
-        headers["Authorization"] = f"Bearer {github_token}"
-
-    payload = {"text": md_content}
-
-    response = requests.post(github_api_url, headers=headers, json=payload)
-
-    if response.status_code == 200:
-        html_content = response.text
-    else:
-        print(f"GitHub API request failed, status code: {response.status_code}")
-        print(f"Error message: {response.text}")
-        return
-
-    full_html = f"""<!DOCTYPE html><html>
+PAGE = """<!DOCTYPE html><html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -71,32 +37,68 @@ def convert_readme_to_html(readme_path, output_path, github_token=None):
 <link rel="icon" href="https://cdn.isteed.cc/favicon_opt.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown.min.css" integrity="sha512-BrOPA520KmDMqieeM7XFe6a3u3Sb3F1JBaQnrIAmWg3EYrciJ+Qqe6ZcKCdfPv26rGcgTrJnZ/IdQEct8h3Zhw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <style>
-.markdown-body {{box-sizing: border-box;min-width: 200px;max-width: 980px;margin: 0 auto;padding: 45px;}}@media (max-width: 767px) {{.markdown-body {{padding: 15px;}}}}
+.markdown-body {{box-sizing:border-box;min-width:200px;max-width:980px;margin:0 auto;padding:45px;}}@media (max-width:767px) {{.markdown-body {{padding:15px;}}}}
 </style>
 </head>
-<body class="markdown-body">{html_content}</body>
+<body class="markdown-body">{body}</body>
 </html>"""
 
-    with open(output_path, "w", encoding="utf-8") as html_file:
-        html_file.write(full_html)
 
-
-generate_files("cloudflare-iata.json", os.path.join("dist", "en"))
-generate_files("cloudflare-iata-zh.json", os.path.join("dist", "zh"))
-generate_files("cloudflare-iata-full.json", os.path.join("dist", "full"))
-write_headers_file(os.path.join("dist"))
-github_token = os.environ.get("GITHUB_TOKEN")
-convert_readme_to_html("README.md", os.path.join("dist", "index.html"), github_token)
-
-for filename in [
-    "cloudflare-iata.json",
-    "cloudflare-iata-zh.json",
-    "cloudflare-iata-full.json",
-    "en2zh.json",
-]:
-    with open(filename, "r", encoding="utf-8") as f:
+def generate_files(json_path, output_dir):
+    print(f"Generating {output_dir} from {json_path}...")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    output_path = os.path.join("dist", filename)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    for code, value in data.items():
+        if isinstance(value, dict):
+            value = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        (output_dir / code).write_text(value, encoding="utf-8")
+    print(f"Generated {len(data)} files in {output_dir}.")
+
+
+def convert_readme_to_html(readme_path, output_path):
+    print("Converting README.md to HTML...")
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    if github_token := os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = f"Bearer {github_token}"
+
+    with open(readme_path, "r", encoding="utf-8") as f:
+        md_content = f.read()
+
+    response = requests.post(
+        "https://api.github.com/markdown",
+        headers=headers,
+        json={"text": md_content},
+        timeout=30,
+    )
+    response.raise_for_status()
+    output_path.write_text(PAGE.format(body=response.text), encoding="utf-8")
+    print(f"Wrote {output_path}.")
+
+
+def main():
+    generate_files("cloudflare-iata.json", DIST / "en")
+    generate_files("cloudflare-iata-zh.json", DIST / "zh")
+    generate_files("cloudflare-iata-full.json", DIST / "full")
+
+    print("Writing headers file...")
+    DIST.mkdir(exist_ok=True)
+    (DIST / "_headers").write_text(HEADERS, encoding="utf-8")
+    convert_readme_to_html("README.md", DIST / "index.html")
+
+    for filename in JSON_FILES:
+        print(f"Copying {filename}...")
+        with open(filename, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        with open(DIST / filename, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+
+    print("Generated dist files.")
+
+
+if __name__ == "__main__":
+    main()
