@@ -21,6 +21,7 @@ REGION_MAP = {
     "BD": "Asia Pacific",
     "MD": "Europe",
     "NZ": "Oceania",
+    "CL": "South America",
 }
 
 IATA_SPECIAL_CASES = {

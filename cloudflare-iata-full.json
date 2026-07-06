@@ -453,7 +453,7 @@
     "lat": -36.77235,
     "lng": -73.062828,
     "cca2": "CL",
-    "region": null
+    "region": "South America"
   },
   "CCU": {
     "place": "Kolkata, India",
@@ -481,7 +481,7 @@
   },
   "CFC": {
     "place": "Caçador, Brazil",
-    "place_zh": "巴西卡卡多尔",
+    "place_zh": "巴西卡萨多尔",
     "lat": -26.7762,
     "lng": -51.0125,
     "cca2": "BR",
@@ -678,6 +678,14 @@
     "lng": 103.945966,
     "cca2": "CN",
     "region": "Asia Pacific"
+  },
+  "CVG": {
+    "place": "Cincinnati, United States",
+    "place_zh": "美国辛辛那提",
+    "lat": 39.048801,
+    "lng": -84.667801,
+    "cca2": "US",
+    "region": "North America"
   },
   "CWB": {
     "place": "Curitiba, Brazil",
@@ -1313,7 +1321,7 @@
   },
   "JRG": {
     "place": "Sambalpur, India",
-    "place_zh": "印度萨姆巴尔普尔",
+    "place_zh": "印度桑巴尔普尔",
     "lat": 21.9135,
     "lng": 84.0504,
     "cca2": "IN",
@@ -1368,7 +1376,7 @@
     "region": "Africa"
   },
   "KHH": {
-    "place": "Kaohsiung City, Taiwan",
+    "place": "Kaohsiung City",
     "place_zh": "中国台湾高雄",
     "lat": 22.577101,
     "lng": 120.349998,
@@ -1385,7 +1393,7 @@
   },
   "KHN": {
     "place": "Xinyu, China",
-    "place_zh": "中国新余市",
+    "place_zh": "中国新余",
     "lat": 28.864815,
     "lng": 115.90271,
     "cca2": "CN",
@@ -1753,7 +1761,7 @@
   },
   "MLE": {
     "place": "Malé, Maldives",
-    "place_zh": "马累, 马尔代夫",
+    "place_zh": "马尔代夫马累",
     "lat": 4.19183,
     "lng": 73.529099,
     "cca2": "MV",
@@ -2192,8 +2200,8 @@
     "region": "Middle East"
   },
   "RUN": {
-    "place": "Réunion, France",
-    "place_zh": "法国留尼汪",
+    "place": "Saint-Denis, Réunion",
+    "place_zh": "法国留尼汪圣丹尼",
     "lat": -20.8871,
     "lng": 55.5103,
     "cca2": "RE",
@@ -2741,7 +2749,7 @@
     "lat": 45.322498,
     "lng": -75.669197,
     "cca2": "CA",
-    "region": "North America"
+    "region": null
   },
   "YUL": {
     "place": "Montréal, Canada",
