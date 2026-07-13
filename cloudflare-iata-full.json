@@ -767,6 +767,14 @@
     "cca2": "SN",
     "region": "Africa"
   },
+  "DLA": {
+    "place": "Douala, Cameroon",
+    "place_zh": "喀麦隆杜阿拉",
+    "lat": 4.00608,
+    "lng": 9.71948,
+    "cca2": "CM",
+    "region": "Africa"
+  },
   "DLC": {
     "place": "Dalian, China",
     "place_zh": "中国大连",
