@@ -1898,10 +1898,10 @@
   "NQZ": {
     "place": "Astana, Kazakhstan",
     "place_zh": "哈萨克斯坦阿斯塔纳",
-    "lat": 51.022202,
-    "lng": 71.466904,
+    "lat": 51.027035,
+    "lng": 71.467094,
     "cca2": "KZ",
-    "region": "Europe"
+    "region": null
   },
   "NRT": {
     "place": "Tokyo, Japan",
