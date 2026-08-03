@@ -199,6 +199,14 @@
     "cca2": "US",
     "region": "North America"
   },
+  "AVA": {
+    "place": "Anshun, China",
+    "place_zh": "中国安顺",
+    "lat": 26.260556,
+    "lng": 105.873333,
+    "cca2": "CN",
+    "region": "Asia Pacific"
+  },
   "BAH": {
     "place": "Manama, Bahrain",
     "place_zh": "巴林麦纳麦",
@@ -230,6 +238,14 @@
     "lng": 2.07846,
     "cca2": "ES",
     "region": "Europe"
+  },
+  "BDQ": {
+    "place": "Jamnagar, India",
+    "place_zh": "印度贾姆讷格尔",
+    "lat": 22.336201,
+    "lng": 73.226303,
+    "cca2": "IN",
+    "region": "Asia Pacific"
   },
   "BEG": {
     "place": "Belgrade, Serbia",
@@ -1589,7 +1605,7 @@
     "lat": -13.7894,
     "lng": 33.780998,
     "cca2": "MW",
-    "region": "Africa"
+    "region": null
   },
   "LOCAL": {
     "place": "LOCAL",
@@ -1898,10 +1914,10 @@
   "NQZ": {
     "place": "Astana, Kazakhstan",
     "place_zh": "哈萨克斯坦阿斯塔纳",
-    "lat": 51.027035,
-    "lng": 71.467094,
+    "lat": 51.022202,
+    "lng": 71.466904,
     "cca2": "KZ",
-    "region": null
+    "region": "Asia Pacific"
   },
   "NRT": {
     "place": "Tokyo, Japan",
