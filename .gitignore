@@ -2,4 +2,6 @@
 .idea
 dist
 temp*
-test*
+__pycache__/
+*.py[cod]
+.coverage

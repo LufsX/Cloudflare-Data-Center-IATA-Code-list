@@ -1605,7 +1605,7 @@
     "lat": -13.7894,
     "lng": 33.780998,
     "cca2": "MW",
-    "region": null
+    "region": "Africa"
   },
   "LOCAL": {
     "place": "LOCAL",
@@ -2615,6 +2615,14 @@
     "cca2": "BR",
     "region": "South America"
   },
+  "UDR": {
+    "place": "Udaipur, India",
+    "place_zh": "印度乌代布尔",
+    "lat": 24.617701,
+    "lng": 73.896103,
+    "cca2": "IN",
+    "region": "Asia Pacific"
+  },
   "UIO": {
     "place": "Quito, Ecuador",
     "place_zh": "厄瓜多尔基多",
@@ -2773,7 +2781,7 @@
     "lat": 45.322498,
     "lng": -75.669197,
     "cca2": "CA",
-    "region": null
+    "region": "North America"
   },
   "YUL": {
     "place": "Montréal, Canada",
