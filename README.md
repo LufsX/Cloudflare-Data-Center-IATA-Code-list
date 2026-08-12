@@ -35,7 +35,7 @@ Contains the location in both English and Chinese, along with latitude and longi
 
 ### 中英文对照表
 
-人工维护，英文地名翻译成对应格式的中文地名的对照表
+英文地名翻译成对应格式的中文地名的对照表；已有译文可人工维护，更新数据时缺失的机器译文会自动追加到文件末尾
 
 - GitHub Raw: [`https://github.com/LufsX/Cloudflare-Data-Center-IATA-Code-list/raw/main/en2zh.json`](https://github.com/LufsX/Cloudflare-Data-Center-IATA-Code-list/raw/main/en2zh.json)
 - Jsdelivr CDN: [`https://cdn.jsdelivr.net/gh/LufsX/Cloudflare-Data-Center-IATA-Code-list/en2zh.json`](https://cdn.jsdelivr.net/gh/LufsX/Cloudflare-Data-Center-IATA-Code-list/en2zh.json)

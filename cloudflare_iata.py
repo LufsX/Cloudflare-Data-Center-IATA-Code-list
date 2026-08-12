@@ -6,7 +6,7 @@ import re
 import shutil
 import tempfile
 import time
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from numbers import Real
 from pathlib import Path
@@ -360,7 +360,7 @@ def google_translate(session: Session, text: str) -> str:
 
 def build_translations(
     english: Mapping[str, str],
-    dictionary: Mapping[str, str],
+    dictionary: MutableMapping[str, str],
     translate: Callable[[str], str],
     *,
     delay: float = 0.5,
@@ -377,6 +377,8 @@ def build_translations(
             print(f"Unable to translate {place}: {error}")
             result[code] = place
             continue
+        if translated:
+            dictionary[place] = translated
         result[code] = translated or place
         sleep(delay)
     return dict(sorted(result.items()))
@@ -387,6 +389,7 @@ def update_translations(paths: ProjectPaths, session: Session) -> dict[str, str]
     dictionary = read_json(paths.translations)
     validate_basic_data("English data", english)
     validate_translation_dictionary(dictionary)
+    existing_places = set(dictionary)
     print(f"Translating {len(english)} nodes...")
     result = build_translations(
         english,
@@ -394,6 +397,13 @@ def update_translations(paths: ProjectPaths, session: Session) -> dict[str, str]
         lambda text: google_translate(session, text),
     )
     validate_basic_data("Chinese data", result)
+    added_places = [place for place in dictionary if place not in existing_places]
+    if added_places:
+        write_pretty_json(paths.translations, dictionary)
+        print(
+            f"Appended {len(added_places)} machine translations to "
+            f"{paths.translations}."
+        )
     write_pretty_json(paths.chinese, result, sort_keys=True)
     print(f"Wrote {len(result)} translations to {paths.chinese}.")
     return result
