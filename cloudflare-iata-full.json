@@ -71,6 +71,14 @@
     "cca2": "IN",
     "region": "Asia Pacific"
   },
+  "AIP": {
+    "place": "Jalandhar, India",
+    "place_zh": "Jalandhar, India",
+    "lat": 31.4338,
+    "lng": 75.758797,
+    "cca2": "IN",
+    "region": "Asia Pacific"
+  },
   "AKL": {
     "place": "Auckland, New Zealand",
     "place_zh": "新西兰奥克兰",
