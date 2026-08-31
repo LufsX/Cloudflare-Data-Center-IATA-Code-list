@@ -73,7 +73,7 @@
   },
   "AIP": {
     "place": "Jalandhar, India",
-    "place_zh": "Jalandhar, India",
+    "place_zh": "印度贾朗达尔",
     "lat": 31.4338,
     "lng": 75.758797,
     "cca2": "IN",
@@ -878,6 +878,14 @@
     "lng": 55.364399,
     "cca2": "AE",
     "region": "Middle East"
+  },
+  "DYU": {
+    "place": "Dushanbe, Tajikistan",
+    "place_zh": "Dushanbe, Tajikistan",
+    "lat": 38.543301,
+    "lng": 68.824997,
+    "cca2": "TJ",
+    "region": "Asia Pacific"
   },
   "EBB": {
     "place": "Kampala, Uganda",
