@@ -1647,6 +1647,14 @@
     "cca2": "BO",
     "region": "South America"
   },
+  "LUH": {
+    "place": "Ludhiana, India",
+    "place_zh": "Ludhiana, India",
+    "lat": 30.8547,
+    "lng": 75.952599,
+    "cca2": "IN",
+    "region": "Asia Pacific"
+  },
   "LUN": {
     "place": "Lusaka, Zambia",
     "place_zh": "赞比亚卢萨卡",
