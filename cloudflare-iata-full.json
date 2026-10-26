@@ -2175,6 +2175,14 @@
     "cca2": "CZ",
     "region": "Europe"
   },
+  "PRN": {
+    "place": "Prishtine , Kosovo",
+    "place_zh": "Prishtine , Kosovo",
+    "lat": 42.5728,
+    "lng": 21.035801,
+    "cca2": "XK",
+    "region": "Europe"
+  },
   "PTY": {
     "place": "Panama City, Panama",
     "place_zh": "巴拿马巴拿马城",
