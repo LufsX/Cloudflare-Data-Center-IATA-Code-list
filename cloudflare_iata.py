@@ -1,11 +1,14 @@
 import argparse
 import csv
+import html
 import json
 import os
 import re
 import shutil
+import sys
 import tempfile
 import time
+import unicodedata
 from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from numbers import Real
@@ -16,7 +19,7 @@ from requests import Session
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 STATUS_URL = "https://www.cloudflarestatus.com/api/v2/components.json"
 CLOUDFLARE_LOCATIONS_URL = "https://speed.cloudflare.com/locations"
@@ -58,6 +61,7 @@ REGION_MAP = {
 }
 EMPTY_LOCATION = {"lat": None, "lng": None, "cca2": None, "region": None}
 CODE_PATTERN = re.compile(r"^[A-Z0-9]{3,5}$")
+CJK_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 FULL_FIELDS = ("place", "place_zh", "lat", "lng", "cca2", "region")
 
 HEADERS = """/en/*
@@ -126,6 +130,10 @@ class ProjectPaths:
 
 
 class DataValidationError(ValueError):
+    pass
+
+
+class TranslationError(DataValidationError):
     pass
 
 
@@ -240,8 +248,18 @@ def validate_full_data(data: Any) -> Mapping[str, Mapping[str, Any]]:
 def validate_translation_dictionary(data: Any) -> Mapping[str, str]:
     if not isinstance(data, dict):
         raise DataValidationError("translation dictionary must be a JSON object")
-    if not all(isinstance(key, str) and isinstance(value, str) for key, value in data.items()):
-        raise DataValidationError("translation dictionary entries must be strings")
+    for key, value in data.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise DataValidationError("translation dictionary entries must be strings")
+        if not key.strip() or key != normalize_place(key):
+            raise DataValidationError(
+                f"translation dictionary key {key!r} is not a normalized place name"
+            )
+        if not is_translation(key, value):
+            raise DataValidationError(
+                f"translation dictionary value for {key!r} is not a Chinese "
+                f"translation: {value!r}"
+            )
     return data
 
 
@@ -254,17 +272,30 @@ def validate_datasets(
     english = validate_basic_data("English data", english)
     chinese = validate_basic_data("Chinese data", chinese)
     full = validate_full_data(full)
-    validate_translation_dictionary(translations)
+    translations = validate_translation_dictionary(translations)
     if english.keys() != chinese.keys() or english.keys() != full.keys():
         raise DataValidationError("English, Chinese, and full data keys must match")
     for code, place in english.items():
         if full[code]["place"] != place or full[code]["place_zh"] != chinese[code]:
             raise DataValidationError(f"full data[{code!r}] does not match basic data")
+        if not is_translation(place, chinese[code]):
+            raise DataValidationError(
+                f"Chinese data[{code!r}] is not translated: {chinese[code]!r}"
+            )
+    untranslated = sorted(
+        {place for place in english.values() if place not in translations}
+    )
+    if untranslated:
+        raise DataValidationError(
+            "translation dictionary is missing entries for: "
+            + ", ".join(repr(place) for place in untranslated)
+        )
     return {
         "english": len(english),
         "chinese": len(chinese),
         "full": len(full),
         "translations": len(translations),
+        "unused_translations": len(set(translations) - set(english.values())),
     }
 
 
@@ -277,8 +308,21 @@ def validate_project(paths: ProjectPaths) -> dict[str, int]:
     )
 
 
+def place_city(place: str) -> str:
+    """Fold a place name down to its city part for rename detection."""
+    city = place.split(",")[0]
+    folded = unicodedata.normalize("NFKD", city)
+    folded = "".join(char for char in folded if not unicodedata.combining(char))
+    return " ".join(re.sub(r"[^0-9a-z]+", " ", folded.casefold()).split())
+
+
 def normalize_place(value: str) -> str:
-    return re.sub(r",.*,", ",", value.strip())
+    """Collapse whitespace, drop a middle region segment, and tidy commas."""
+    cleaned = " ".join(value.split())
+    cleaned = re.sub(r",[^,]*,", ",", cleaned)
+    cleaned = re.sub(r"\s+,", ",", cleaned)
+    cleaned = re.sub(r",\s*", ", ", cleaned)
+    return " ".join(cleaned.split())
 
 
 def parse_components(
@@ -342,20 +386,142 @@ def update_nodes(paths: ProjectPaths, session: Session) -> dict[str, str]:
     return result
 
 
-def google_translate(session: Session, text: str) -> str:
-    response = session.get(
+def is_translation(source: str, candidate: Any) -> bool:
+    """A usable translation is a non-empty Chinese string that differs from the source."""
+    if not isinstance(candidate, str):
+        return False
+    text = candidate.strip()
+    if not text or text == source.strip():
+        return False
+    return CJK_PATTERN.search(text) is not None
+
+
+def _extract_google_chunks(payload: Any) -> str:
+    chunks = payload[0] if isinstance(payload, list) and payload else None
+    if not isinstance(chunks, list):
+        raise ValueError("unexpected Google Translate payload")
+    parts = [
+        chunk[0]
+        for chunk in chunks
+        if isinstance(chunk, list) and chunk and isinstance(chunk[0], str)
+    ]
+    return "".join(parts)
+
+
+def _extract_mymemory(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        raise ValueError("unexpected MyMemory payload")
+    data = payload.get("responseData")
+    text = data.get("translatedText") if isinstance(data, dict) else None
+    if not isinstance(text, str):
+        raise ValueError(f"MyMemory error: {payload.get('responseDetails')!r}")
+    return html.unescape(text)
+
+
+@dataclass(frozen=True)
+class TranslationProvider:
+    name: str
+    url: str
+    params: Callable[[str], dict[str, str]]
+    extract: Callable[[Any], str]
+
+    def fetch(self, session: Session, text: str) -> str:
+        response = session.get(self.url, params=self.params(text), timeout=20)
+        response.raise_for_status()
+        return self.extract(response.json())
+
+
+def _google_params(text: str) -> dict[str, str]:
+    return {
+        "client": "dict-chrome-ex",
+        "sl": "auto",
+        "tl": "zh-CN",
+        "dt": "t",
+        "q": text,
+    }
+
+
+TRANSLATION_PROVIDERS = (
+    TranslationProvider(
+        "google-chrome-extension",
+        "https://clients5.google.com/translate_a/single",
+        _google_params,
+        _extract_google_chunks,
+    ),
+    TranslationProvider(
+        "google-gtx",
         TRANSLATE_URL,
-        params={"client": "gtx", "sl": "auto", "tl": "zh-CN", "dt": "t", "q": text},
-        timeout=20,
-    )
-    response.raise_for_status()
-    try:
-        translation = response.json()[0][0][0]
-    except (IndexError, KeyError, TypeError) as error:
-        raise ValueError("Unexpected Google Translate response") from error
-    if not isinstance(translation, str):
-        raise ValueError("Google Translate returned a non-string result")
-    return translation
+        lambda text: {
+            "client": "gtx",
+            "sl": "auto",
+            "tl": "zh-CN",
+            "dt": "t",
+            "q": text,
+        },
+        _extract_google_chunks,
+    ),
+    TranslationProvider(
+        "mymemory",
+        "https://api.mymemory.translated.net/get",
+        lambda text: {"q": text, "langpair": "en|zh-CN"},
+        _extract_mymemory,
+    ),
+)
+
+
+def translate_text(
+    session: Session,
+    text: str,
+    *,
+    providers: Sequence[TranslationProvider] = TRANSLATION_PROVIDERS,
+    attempts: int = 2,
+    backoff: float = 3.0,
+    sleep: Callable[[float], None] = time.sleep,
+) -> str:
+    problems: list[str] = []
+    for attempt in range(1, attempts + 1):
+        for provider in providers:
+            try:
+                candidate = provider.fetch(session, text)
+            except Exception as error:
+                problems.append(f"{provider.name}: {error}")
+                continue
+            if is_translation(text, candidate):
+                return candidate.strip()
+            problems.append(f"{provider.name}: unusable result {candidate!r}")
+        if attempt < attempts:
+            sleep(backoff * attempt)
+    raise TranslationError(f"cannot translate {text!r} ({'; '.join(problems)})")
+
+
+def carry_over_translations(
+    english: Mapping[str, str],
+    previous: Mapping[str, Any],
+    dictionary: MutableMapping[str, str],
+) -> list[str]:
+    """Reuse an existing translation when only the region part of a place changed.
+
+    Cloudflare regularly rewrites names (accents dropped, country renamed), but
+    the city stays the same, so the curated Chinese name is still valid.
+    """
+    carried: list[str] = []
+    for code, place in english.items():
+        if place in dictionary:
+            continue
+        entry = previous.get(code)
+        if not isinstance(entry, Mapping):
+            continue
+        old_place = entry.get("place")
+        old_zh = entry.get("place_zh")
+        if not isinstance(old_place, str) or not isinstance(old_zh, str):
+            continue
+        if not is_translation(old_place, old_zh):
+            continue
+        if place_city(old_place) != place_city(place):
+            continue
+        dictionary[place] = old_zh.strip()
+        carried.append(code)
+    return carried
 
 
 def build_translations(
@@ -365,8 +531,15 @@ def build_translations(
     *,
     delay: float = 0.5,
     sleep: Callable[[float], None] = time.sleep,
-) -> dict[str, str]:
+) -> tuple[dict[str, str], list[str]]:
+    """Return Chinese data plus the places left untranslated.
+
+    Only a verified Chinese translation enters the result or the dictionary;
+    untranslated places are reported instead of leaking English into the
+    Chinese dataset.
+    """
     result: dict[str, str] = {}
+    missing: list[str] = []
     for code, place in english.items():
         if place in dictionary:
             result[code] = dictionary[place]
@@ -375,13 +548,16 @@ def build_translations(
             translated = translate(place)
         except Exception as error:
             print(f"Unable to translate {place}: {error}")
-            result[code] = place
+            missing.append(place)
             continue
-        if translated:
-            dictionary[place] = translated
-        result[code] = translated or place
+        if not is_translation(place, translated):
+            print(f"Untranslated output for {place}: {translated!r}")
+            missing.append(place)
+            continue
+        dictionary[place] = translated.strip()
+        result[code] = dictionary[place]
         sleep(delay)
-    return dict(sorted(result.items()))
+    return dict(sorted(result.items())), sorted(missing)
 
 
 def update_translations(paths: ProjectPaths, session: Session) -> dict[str, str]:
@@ -390,13 +566,19 @@ def update_translations(paths: ProjectPaths, session: Session) -> dict[str, str]
     validate_basic_data("English data", english)
     validate_translation_dictionary(dictionary)
     existing_places = set(dictionary)
+    previous = read_json(paths.full) if paths.full.exists() else {}
+    carried = carry_over_translations(english, previous, dictionary)
+    if carried:
+        print(
+            "Reused existing translations for renamed places: "
+            + ", ".join(carried)
+        )
     print(f"Translating {len(english)} nodes...")
-    result = build_translations(
+    result, missing = build_translations(
         english,
         dictionary,
-        lambda text: google_translate(session, text),
+        lambda text: translate_text(session, text),
     )
-    validate_basic_data("Chinese data", result)
     added_places = [place for place in dictionary if place not in existing_places]
     if added_places:
         write_pretty_json(paths.translations, dictionary)
@@ -404,6 +586,15 @@ def update_translations(paths: ProjectPaths, session: Session) -> dict[str, str]
             f"Appended {len(added_places)} machine translations to "
             f"{paths.translations}."
         )
+    if missing:
+        raise TranslationError(
+            f"{len(missing)} place(s) still need a Chinese translation: "
+            + ", ".join(repr(place) for place in missing)
+            + f". Add them to {paths.translations} by hand and run again; "
+            "no untranslated entry was written to "
+            f"{paths.chinese.name}."
+        )
+    validate_basic_data("Chinese data", result)
     write_pretty_json(paths.chinese, result, sort_keys=True)
     print(f"Wrote {len(result)} translations to {paths.chinese}.")
     return result
@@ -612,6 +803,14 @@ def create_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = create_parser().parse_args(argv)
     paths = ProjectPaths.from_root(args.root)
+    try:
+        return run_command(args, paths)
+    except DataValidationError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+
+def run_command(args: argparse.Namespace, paths: ProjectPaths) -> int:
     if args.command == "validate":
         counts = validate_project(paths)
         print(
